@@ -26,7 +26,7 @@ function startGameRoulette(fontBase64 = "") {
             padding: 0; border: none; color: inherit; cursor: pointer;
         }
         .gr-trigger:focus-visible { outline: 1px solid currentColor; outline-offset: -2px; }
-        .gr-glyph { position: relative; display: block; width: 32px; height: 32px; opacity: .78; }
+        .gr-glyph { position: relative; display: block; width: 30px; height: 30px; opacity: .78; }
         .gr-trigger:is(:hover, :focus-visible) .gr-glyph { opacity: 1; }
         .gr-glyph::before {
             content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -35,6 +35,7 @@ function startGameRoulette(fontBase64 = "") {
                         radial-gradient(circle at 50% 50%, currentColor 1px, transparent 1.4px),
                         radial-gradient(circle at 72% 72%, currentColor 1px, transparent 1.4px);
         }
+        .gr-glyph[data-stock-size]::before { box-sizing: border-box; width: 21px; height: 21px; }
         .gr-collection-picker { position: relative; min-width: 0; max-width: min(36%, 210px); }
         .gr-collection-picker::after {
             content: ''; position: absolute; pointer-events: none;
@@ -1027,6 +1028,10 @@ function startGameRoulette(fontBase64 = "") {
             trigger.setAttribute('aria-label', 'Game Roulette');
             const glyph = element(doc, 'span', 'gr-glyph');
             glyph.setAttribute('aria-hidden', 'true');
+            const nativeIcon = link.firstElementChild;
+            if (nativeIcon && doc.defaultView.getComputedStyle(nativeIcon).width === '30px') {
+                glyph.dataset.stockSize = '';
+            }
             trigger.append(glyph);
             trigger.addEventListener('click', () => openRoulette(doc, collectionRoute(), trigger));
             surface.append(trigger);
