@@ -36,6 +36,16 @@ function startGameRoulette(fontBase64 = "") {
                         radial-gradient(circle at 72% 72%, currentColor 1px, transparent 1.4px);
         }
         .gr-glyph[data-stock-size]::before { box-sizing: border-box; width: 21px; height: 21px; }
+        html body.se-header-actions-ready .se-list-top.gr-enhanced-trigger {
+            left: calc(var(--se-list-right, calc(var(--se-rail-width) + var(--se-list-w)))
+                - var(--se-space-2) - 3 * var(--se-rail-btn) - 2 * var(--se-rail-gap));
+        }
+        html body.se-header-actions-ready .se-list-top.gr-enhanced-trigger::before { content: none; }
+        .gr-enhanced-trigger .gr-glyph { opacity: 1; }
+        .gr-enhanced-trigger .gr-glyph::before {
+            box-sizing: border-box; width: 17px; height: 17px;
+            background-color: color-mix(in srgb, currentColor 20%, transparent);
+        }
         .gr-collection-picker { position: relative; min-width: 0; max-width: min(36%, 210px); }
         .gr-collection-picker::after {
             content: ''; position: absolute; pointer-events: none;
@@ -71,6 +81,16 @@ function startGameRoulette(fontBase64 = "") {
             box-shadow: 0 18px 60px #0008; font: 15px/1.4 "Motiva Sans", system-ui, sans-serif;
         }
         .gr-dialog::backdrop { background: rgb(0 0 0 / .62); }
+        .gr-dialog.gr-enhanced {
+            --gr-surface: var(--se-surface);
+            --gr-inset: var(--se-bg);
+            --gr-ink: var(--se-text);
+            --gr-muted: var(--se-text-muted);
+            --gr-accent: var(--se-accent);
+            --gr-border: var(--se-divider);
+            --gr-radius: var(--se-radius-sm);
+            font-family: var(--se-font);
+        }
         .gr-head, .gr-footer { padding: 19px 24px; }
         .gr-head { display: flex; align-items: center; gap: 12px; }
         .gr-head > div { flex: 1; min-width: 0; }
@@ -635,6 +655,7 @@ function startGameRoulette(fontBase64 = "") {
         currentDialog.get(doc)?.close();
 
         const dialog = element(doc, 'dialog', 'gr-dialog');
+        if (trigger.classList.contains('gr-enhanced-trigger')) dialog.classList.add('gr-enhanced');
         dialog.setAttribute('aria-labelledby', 'gr-title');
         const head = element(doc, 'header', 'gr-head');
         const titles = element(doc, 'div');
@@ -1014,26 +1035,36 @@ function startGameRoulette(fontBase64 = "") {
                 return;
             }
 
+            const enhancedTop = doc.querySelector('body.se-header-actions-ready .se-list-top:not(.gr-enhanced-trigger)');
+            if (enhancedTop && existing?.classList.contains('gr-enhanced-trigger') &&
+                existing.parentElement === enhancedTop.parentElement) return;
             const link = doc.querySelector('a[href$="/library/collections"]');
             const nativeItem = link?.closest('._2CEKFex6JMsAse2lqMMjUp');
-            if (!nativeItem || existing?.previousElementSibling === nativeItem) return;
+            if (!enhancedTop && nativeItem && existing?.previousElementSibling === nativeItem) return;
             existing?.remove();
+            if (!enhancedTop && !nativeItem) return;
 
-            const item = element(doc, 'div', nativeItem.className + ' gr-roulette-item');
-            const surface = element(doc, 'div', link.parentElement.className);
-            const classes = [...link.classList].filter(name => name !== 'eNLOx4LVceeMwRvTVWh3' && name !== 'Selected');
+            const classes = enhancedTop
+                ? ['se-list-top', 'gr-enhanced-trigger', 'gr-roulette-item']
+                : [...link.classList].filter(name => name !== 'eNLOx4LVceeMwRvTVWh3' && name !== 'Selected');
             const trigger = element(doc, 'button', [...classes, 'gr-trigger'].join(' '));
             trigger.type = 'button';
             trigger.title = 'Game Roulette';
             trigger.setAttribute('aria-label', 'Game Roulette');
             const glyph = element(doc, 'span', 'gr-glyph');
             glyph.setAttribute('aria-hidden', 'true');
-            const nativeIcon = link.firstElementChild;
+            const nativeIcon = enhancedTop ? null : link.firstElementChild;
             if (nativeIcon && doc.defaultView.getComputedStyle(nativeIcon).width === '30px') {
                 glyph.dataset.stockSize = '';
             }
             trigger.append(glyph);
             trigger.addEventListener('click', () => openRoulette(doc, collectionRoute(), trigger));
+            if (enhancedTop) {
+                enhancedTop.before(trigger);
+                return;
+            }
+            const item = element(doc, 'div', nativeItem.className + ' gr-roulette-item');
+            const surface = element(doc, 'div', link.parentElement.className);
             surface.append(trigger);
             item.append(surface);
             nativeItem.after(item);

@@ -5,7 +5,7 @@ Game Roulette is an unofficial Millennium plugin for the Steam desktop library. 
 - Filter the collection to installed games, never-played games, or both. Soundtracks are excluded.
 - Open the winning game's library page directly from the result.
 - Customize spin sounds, the winner banner, and the small game icon in the plugin settings.
-- Built-in theme support for [SpaceTheme for Steam](https://steambrew.app/theme/zQndv1rI0FXLh3QTRgOL) and [Glass Dusk](https://steambrew.app/theme/0hs3xMU5Eb85uvIALzkq). The roulette adapts its styling automatically and also works with the default Steam theme.
+- Built-in theme support for Steam Enhanced, [SpaceTheme for Steam](https://steambrew.app/theme/zQndv1rI0FXLh3QTRgOL), and [Glass Dusk](https://steambrew.app/theme/0hs3xMU5Eb85uvIALzkq). The roulette adapts its styling automatically and also works with the default Steam theme. In Steam Enhanced, the dice icon sits in the game list header next to the library controls.
 - With HLTB for Millennium installed and HLTB Support enabled, the result can show Main Story and 100% completion estimates. Estimates may be unavailable or take longer when they are not cached.
 
 ## Install from the release ZIP
