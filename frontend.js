@@ -1,6 +1,6 @@
 function startGameRoulette(fontBase64 = "") {
     const settingsKey = 'game-roulette.settings';
-    const settings = {hltb: true, sound: true, winnerBanner: true, winnerLogo: true, hideWinnerIcon: false, collectionId: '', installed: false, neverPlayed: false};
+    const settings = {hltb: true, sound: true, winnerBanner: true, winnerLogo: true, hideWinnerIcon: false, steamRating: true, collectionId: '', installed: false, neverPlayed: false};
     const showLegacyWinnerLogo = false;
     try {
         const saved = JSON.parse(window.localStorage.getItem(settingsKey));
@@ -18,6 +18,7 @@ function startGameRoulette(fontBase64 = "") {
     const soundtrackCollectionId = 'type-music';
     const coverCache = new WeakMap();
     const pendingArtDetails = new Map();
+    const reviewCache = new Map();
 
     const styles = `
         .gr-roulette-item { flex: 0 0 auto; }
@@ -230,6 +231,28 @@ function startGameRoulette(fontBase64 = "") {
         .gr-result:has(.gr-winner-icon) { display: flex; align-items: center; gap: 10px; }
         .gr-winner-icon { display: block; flex: none; inline-size: 32px; block-size: 32px; border-radius: 5px; object-fit: contain; }
         .gr-winner-name { min-inline-size: 0; font-family: inherit !important; }
+        .gr-review-rating {
+            --gr-review-track: color-mix(in srgb, var(--gr-muted) 38%, var(--gr-surface));
+            --gr-review-color: #87bf90;
+            display: inline-block; position: relative; vertical-align: middle;
+            inline-size: 23px; block-size: 23px; margin-inline-start: 10px;
+            border-radius: 50%;
+            background: conic-gradient(from 225deg,
+                var(--gr-review-color) 0 var(--gr-review-fill),
+                var(--gr-review-track) var(--gr-review-fill) 75%, transparent 75%);
+        }
+        .gr-review-rating[data-sentiment="mixed"] { --gr-review-color: #daad69; }
+        .gr-review-rating[data-sentiment="negative"] { --gr-review-color: #e38480; }
+        .gr-review-rating::before {
+            content: ''; position: absolute; inset: 2px; border-radius: inherit;
+            background: var(--gr-surface);
+        }
+        .gr-review-rating::after {
+            content: ''; position: absolute; left: 50%; top: 51%;
+            width: 13px; height: 13px; translate: -50% -50%;
+            background: var(--gr-ink);
+            clip-path: polygon(evenodd, 50.000% 2.000%, 63.519% 31.393%, 95.651% 35.167%, 71.874% 57.107%, 78.214% 88.833%, 50.000% 73.000%, 21.786% 88.833%, 28.126% 57.107%, 4.349% 35.167%, 36.481% 31.393%, 50.000% 2.000%, 50.000% 21.145%, 58.127% 38.814%, 77.443% 41.083%, 63.150% 54.273%, 66.961% 73.344%, 50.000% 63.826%, 33.039% 73.344%, 36.850% 54.273%, 22.557% 41.083%, 41.873% 38.814%, 50.000% 21.145%);
+        }
         .gr-result:has(.gr-winner-logo) { display: grid; justify-items: start; gap: 2px; }
         .gr-result .gr-winner-caption {
             font: 400 18px/1.2 'Germania One', Georgia, serif;
@@ -292,14 +315,64 @@ function startGameRoulette(fontBase64 = "") {
     // Character coverage of the bundled Germania One font.
     const germaniaCharacters = /^[\u0020-\u007e\u00a0-\u0101\u0112-\u0113\u0116-\u0117\u011a\u0127-\u012b\u0130-\u0135\u0137-\u0138\u013f-\u0144\u014a-\u014c\u0151-\u0154\u0156-\u0159\u0168-\u016b\u016f\u0171\u017f\u01fc-\u01fd\u0237\u02c6-\u02c7\u02d9-\u02da\u02dc-\u02dd\u0307\u03bc\u2013-\u2014\u2018-\u201a\u201c-\u201e\u2022\u2039-\u203a\u2044\u20ac\ufb00-\ufb05]*$/u;
 
-    function showWinnerTitle(doc, result, title) {
+    function showWinnerTitle(doc, result, name, title) {
         const text = title.normalize('NFC').replace(/[\u2160-\u217f]/gu, numeral => numeral.normalize('NFKC'));
         const parts = text.split('™');
         result.toggleAttribute('data-title-fallback', !germaniaCharacters.test(parts.join('TM')));
-        result.replaceChildren(parts[0]);
+        name.replaceChildren(parts[0]);
         for (const part of parts.slice(1)) {
-            result.append(element(doc, 'sup', '', 'TM'), part);
+            name.append(element(doc, 'sup', '', 'TM'), part);
         }
+        result.replaceChildren(name);
+    }
+
+    function getSteamRating(game) {
+        const appid = Number(game.appid);
+        if (game.app_type !== 1 || !Number.isSafeInteger(appid) || appid <= 0 || appid >= 0x80000000) return;
+        const cached = reviewCache.get(appid);
+        if (cached && cached.expires > Date.now()) return cached.request;
+
+        const input = {
+            ids: [{appid}],
+            context: {language: 'english', country_code: 'US', steam_realm: 1},
+            data_request: {include_reviews: true},
+        };
+        const url = 'https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json='
+            + encodeURIComponent(JSON.stringify(input));
+        const request = fetch(url, {credentials: 'omit', signal: AbortSignal.timeout(5000)})
+            .then(response => {
+                if (!response.ok) throw new Error('Steam review request failed');
+                return response.json();
+            })
+            .then(payload => {
+                const item = payload?.response?.store_items?.find(item => item.appid === appid);
+                if (!item) throw new Error('Steam store item unavailable');
+                const summary = item.reviews?.summary_filtered;
+                const percent = summary?.percent_positive ?? 0;
+                const count = summary?.review_count;
+                if (!Number.isInteger(percent) || percent < 0 || percent > 100 ||
+                    !Number.isSafeInteger(count) || count < 1) return null;
+                return {percent, count};
+            })
+            .catch(() => {
+                reviewCache.delete(appid);
+                return null;
+            });
+        reviewCache.set(appid, {request, expires: Date.now() + 60 * 60 * 1000});
+        if (reviewCache.size > 128) reviewCache.delete(reviewCache.keys().next().value);
+        return request;
+    }
+
+    function reviewRatingBadge(doc, {percent, count}) {
+        const badge = element(doc, 'span', 'gr-review-rating');
+        badge.dataset.sentiment = percent < 40 ? 'negative' : percent < 70 ? 'mixed' : 'positive';
+        badge.style.setProperty('--gr-review-fill', percent * .75 + '%');
+        const label = 'Steam · ' + percent + '% positive · ' +
+            count.toLocaleString('en-US') + (count === 1 ? ' review' : ' reviews');
+        badge.title = label;
+        badge.setAttribute('role', 'img');
+        badge.setAttribute('aria-label', label);
+        return badge;
     }
 
     function libraryPath() {
@@ -857,6 +930,7 @@ function startGameRoulette(fontBase64 = "") {
             preparedSpin = undefined;
             const selected = prepared ? eligible.find(game => game.appid === prepared.game.appid) : random(eligible);
             const request = settings.hltb ? prepared?.request ?? getCompletionTimes(selected) : undefined;
+            const ratingRequest = settings.steamRating ? getSteamRating(selected) : undefined;
             const bannerRequest = settings.winnerBanner ? loadArtwork(doc, selected, 'banner') : undefined;
             const logoRequest = showLegacyWinnerLogo && settings.winnerLogo ? loadArtwork(doc, selected, 'logo') : undefined;
             const iconRequest = !logoRequest && !settings.hideWinnerIcon ? loadArtwork(doc, selected, 'icon') : undefined;
@@ -941,17 +1015,21 @@ function startGameRoulette(fontBase64 = "") {
             winner = selected;
             drawn.add(selected.appid);
             result.dataset.winner = '';
-            showWinnerTitle(doc, result, selected.display_name);
+            const name = element(doc, 'span', 'gr-winner-name');
+            showWinnerTitle(doc, result, name, selected.display_name);
             const isCurrentWinner = () => dialog.open && winner === selected &&
                 track.contains(winningCard) && winningCard.classList.contains('gr-winner');
+            void ratingRequest?.then(rating => {
+                if (rating && settings.steamRating && isCurrentWinner()) {
+                    name.append(reviewRatingBadge(doc, rating));
+                }
+            });
             void iconRequest?.then(icon => {
                 if (!icon || settings.hideWinnerIcon || !isCurrentWinner()) return;
                 const image = icon.cloneNode();
                 image.className = 'gr-winner-icon';
                 image.alt = '';
-                const name = element(doc, 'span', 'gr-winner-name');
-                name.append(...result.childNodes);
-                result.append(image, name);
+                result.prepend(image);
             });
             void logoRequest?.then(logo => {
                 if (!logo || !settings.winnerLogo || !isCurrentWinner()) return;
@@ -1113,6 +1191,7 @@ function startGameRoulette(fontBase64 = "") {
             h(SettingsToggle, {name: 'hltb', label: 'HLTB Support', description: 'Show Main Story and 100% times from the HLTB plugin.'}),
             h(SettingsToggle, {name: 'sound', label: 'Sound', description: 'Play sounds during the spin and when a game is picked.'}),
             h(SettingsToggle, {name: 'winnerBanner', label: 'Winner Banner', description: 'Show the winning game’s banner behind the result.'}),
+            h(SettingsToggle, {name: 'steamRating', label: 'Steam Review Rating', description: 'Show a star and arc beside the winner. The arc shows the share of positive Steam reviews. Hover for the exact percentage and review count.'}),
             showLegacyWinnerLogo
                 ? h(SettingsToggle, {name: 'winnerLogo', label: 'Show Winner Logo', description: 'Show the winning game’s logo above its name when a suitable transparent logo is available.'})
                 : h(SettingsToggle, {name: 'hideWinnerIcon', label: 'Hide Game Icon', description: 'Hide the game icon next to the winning game’s name.'})

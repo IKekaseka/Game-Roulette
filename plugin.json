@@ -2,6 +2,6 @@
   "name": "game-roulette",
   "common_name": "Game Roulette",
   "description": "Pick a random game from a Steam collection with an animated roll.",
-  "version": "1.0.45",
+  "version": "1.0.46",
   "backendType": "lua"
 }
