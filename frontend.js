@@ -1114,8 +1114,8 @@ function startGameRoulette(fontBase64 = "") {
             h(SettingsToggle, {name: 'sound', label: 'Sound', description: 'Play sounds during the spin and when a game is picked.'}),
             h(SettingsToggle, {name: 'winnerBanner', label: 'Winner Banner', description: 'Show the winning game’s banner behind the result.'}),
             showLegacyWinnerLogo
-                ? h(SettingsToggle, {name: 'winnerLogo', label: 'Показывать логотип', description: 'Показывает логотип над названием игры, если доступен качественный логотип с прозрачным фоном.'})
-                : h(SettingsToggle, {name: 'hideWinnerIcon', label: 'Скрыть значок', description: 'Скрывает значок игры рядом с названием победителя.'})
+                ? h(SettingsToggle, {name: 'winnerLogo', label: 'Show Winner Logo', description: 'Show the winning game’s logo above its name when a suitable transparent logo is available.'})
+                : h(SettingsToggle, {name: 'hideWinnerIcon', label: 'Hide Game Icon', description: 'Hide the game icon next to the winning game’s name.'})
         ),
     };
 }
